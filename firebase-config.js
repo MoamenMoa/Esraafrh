@@ -18,13 +18,13 @@ export const APP_CONFIG = {
   },
 
   firebaseConfig: {
-    apiKey: "PASTE_YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.firebasestorage.app",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  }
+  apiKey: "AIzaSyCBwka63YjKS1Kn4B1AuiU0Te7HuD9H52s",
+  authDomain: "esraafrh-tasks.firebaseapp.com",
+  projectId: "esraafrh-tasks",
+  storageBucket: "esraafrh-tasks.firebasestorage.app",
+  messagingSenderId: "1005483284045",
+  appId: "1:1005483284045:web:43530cb61cc2f48567ae04"
+}
 };
 
 export function isFirebaseConfigured() {
