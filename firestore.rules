@@ -1,0 +1,157 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function hasProfile() { return signedIn() && exists(userPath()); }
+    function userData() { return get(userPath()).data; }
+    function activeUser() { return hasProfile() && userData().active == true; }
+    function admin() { return activeUser() && userData().role == 'admin'; }
+    function allowedEmail() {
+      return signedIn() && request.auth.token.email in [
+        'esraafrh@example.com',
+        'mohamed.elnshwi@example.com',
+        'ahmed.nagib@example.com'
+      ];
+    }
+    function validOwnProfile() {
+      return request.resource.data.email == request.auth.token.email
+        && request.resource.data.active == true
+        && (
+          (request.auth.token.email == 'esraafrh@example.com'
+            && request.resource.data.name == 'Esraafrh'
+            && request.resource.data.role == 'admin')
+          || (request.auth.token.email == 'mohamed.elnshwi@example.com'
+            && request.resource.data.name == 'Mohamed Elnshwi'
+            && request.resource.data.role == 'user')
+          || (request.auth.token.email == 'ahmed.nagib@example.com'
+            && request.resource.data.name == 'AhmedNagib'
+            && request.resource.data.role == 'user')
+        );
+    }
+    function projectData(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId)).data;
+    }
+    function projectWorker(projectId) {
+      return activeUser() && projectData(projectId).startedByUserId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn() && userId == request.auth.uid && allowedEmail() && validOwnProfile();
+      allow read: if activeUser();
+      allow update: if admin() || (
+        activeUser() && userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLoginAt'])
+      );
+      allow delete: if admin();
+    }
+
+    match /projects/{projectId} {
+      allow read: if activeUser();
+      allow create: if admin()
+        && request.resource.data.title is string
+        && request.resource.data.visibleToAll == true
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.progress == 0;
+      allow update: if admin()
+        || (
+          activeUser()
+          && resource.data.startedByUserId == ''
+          && (resource.data.assignedUserId == '' || resource.data.assignedUserId == request.auth.uid)
+          && request.resource.data.assignedUserId == request.auth.uid
+          && request.resource.data.startedByUserId == request.auth.uid
+          && request.resource.data.startedByUserName == userData().name
+          && request.resource.data.status == 'in_progress'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'assignedUserId','assignedUserName','startedByUserId','startedByUserName',
+            'startedAt','status','updatedAt'
+          ])
+        )
+        || (
+          projectWorker(projectId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'checklistDone','progress','status','notesTotal','notesDone','expensesTotal','updatedAt'
+          ])
+          && request.resource.data.progress >= 0
+          && request.resource.data.progress <= 100
+          && request.resource.data.status in ['pending','in_progress','review','completed']
+        );
+      allow delete: if admin();
+
+      match /checklist/{itemId} {
+        allow read: if activeUser();
+        allow create: if admin()
+          && request.resource.data.text is string
+          && request.resource.data.completed == false;
+        allow update: if admin() || (
+          projectWorker(projectId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'completed','completedBy','completedByName','completedAt','note','updatedAt'
+          ])
+          && (
+            request.resource.data.completed == resource.data.completed
+            || (request.resource.data.completed == true && request.resource.data.completedBy == request.auth.uid)
+            || (request.resource.data.completed == false && request.resource.data.completedBy == '')
+          )
+        );
+        allow delete: if admin();
+      }
+
+      match /notes/{noteId} {
+        allow read: if activeUser();
+        allow create: if (
+          admin()
+          || (projectWorker(projectId) && request.resource.data.completed == false)
+        )
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.text is string;
+        allow update: if admin() || (
+          projectWorker(projectId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'completed','completedBy','completedByName','completedAt','updatedAt'
+          ])
+          && (
+            (request.resource.data.completed == true && request.resource.data.completedBy == request.auth.uid)
+            || (request.resource.data.completed == false && request.resource.data.completedBy == '')
+          )
+        );
+        allow delete: if admin() || (
+          projectWorker(projectId) && resource.data.createdBy == request.auth.uid
+        );
+      }
+
+      match /expenses/{expenseId} {
+        allow read: if activeUser();
+        allow create: if (admin() || projectWorker(projectId))
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.projectId == projectId
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0;
+        allow update: if admin() || (
+          projectWorker(projectId) && resource.data.createdBy == request.auth.uid
+        );
+        allow delete: if admin() || (
+          projectWorker(projectId) && resource.data.createdBy == request.auth.uid
+        );
+
+        match /receipt/{receiptId} {
+          allow read: if activeUser();
+          allow create: if (admin() || projectWorker(projectId))
+            && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.contentType == 'image/jpeg'
+            && request.resource.data.dataUrl is string
+            && request.resource.data.dataUrl.size() < 850000;
+          allow delete: if admin() || projectWorker(projectId);
+          allow update: if false;
+        }
+      }
+
+      match /activity/{activityId} {
+        allow read: if activeUser();
+        allow create: if (admin() || projectWorker(projectId))
+          && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if admin();
+      }
+    }
+  }
+}

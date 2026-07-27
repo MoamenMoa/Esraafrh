@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#b91c1c" />
+  <meta name="description" content="نظام إشراف لإدارة مشاريع التشطيبات، قوائم التحقق، الملاحظات، المصروفات والفواتير." />
+  <title>إشراف | إدارة المشاريع</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+</head>
+<body>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+
+  <section id="boot-screen" class="boot-screen">
+    <div class="spinner"></div>
+    <strong>جاري تشغيل النظام...</strong>
+  </section>
+
+  <section id="setup-screen" class="center-screen hidden">
+    <div class="setup-card">
+      <div class="brand-logo large">إ</div>
+      <p class="eyebrow">الإعداد الأول</p>
+      <h1>اربط الموقع بـ Firebase أولًا</h1>
+      <p>هذه النسخة مخصصة للتشغيل الفعلي ولا تحتوي على وضع تجربة أو بيانات محفوظة داخل المتصفح.</p>
+      <ol class="setup-steps">
+        <li>أنشئ Firebase Web App وفعّل Authentication وFirestore.</li>
+        <li>ضع بيانات التطبيق داخل <code>firebase-config.js</code>.</li>
+        <li>انشر ملف <code>firestore.rules</code>.</li>
+      </ol>
+      <a class="button primary full" href="SETUP_FIREBASE_AR.md" target="_blank" rel="noopener">فتح دليل الربط</a>
+    </div>
+  </section>
+
+  <section id="login-screen" class="login-screen hidden">
+    <div class="login-visual">
+      <div class="brand-lockup">
+        <div class="brand-logo">إ</div>
+        <div><strong>إشراف</strong><span>إدارة مشاريع التشطيبات</span></div>
+      </div>
+      <div class="login-copy">
+        <p class="eyebrow light">Control Every Detail</p>
+        <h1>كل مشروع، وكل ملاحظة، وكل فاتورة في مكان واحد.</h1>
+        <p>متابعة لحظية من الموبايل والكمبيوتر مع تسجيل اسم من بدأ العمل ومن أنهى كل بند.</p>
+      </div>
+    </div>
+
+    <div class="login-panel">
+      <div class="login-card">
+        <p class="eyebrow">تسجيل الدخول</p>
+        <h2>مرحبًا بك</h2>
+        <p class="muted">اكتب اسم المستخدم أو البريد الإلكتروني.</p>
+        <form id="login-form" class="stack-form">
+          <label class="field">
+            <span>اسم المستخدم أو البريد</span>
+            <input id="login-identity" type="text" autocomplete="username" required placeholder="Esraafrh" />
+          </label>
+          <label class="field">
+            <span>كلمة المرور</span>
+            <div class="password-field">
+              <input id="login-password" type="password" autocomplete="current-password" required placeholder="••••••••" />
+              <button id="toggle-password" type="button" class="icon-button" aria-label="إظهار كلمة المرور">◉</button>
+            </div>
+          </label>
+          <button id="login-button" class="button primary full" type="submit">دخول</button>
+          <button id="reset-password-button" class="text-button" type="button">نسيت كلمة المرور؟</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo small">إ</div>
+        <div><strong>إشراف</strong><span>إدارة المشاريع</span></div>
+      </div>
+
+      <nav class="desktop-nav" aria-label="القائمة الرئيسية">
+        <button class="nav-link active" data-view="dashboard" type="button"><span>⌂</span>الرئيسية</button>
+        <button class="nav-link" data-view="projects" type="button"><span>▦</span>المشاريع <b id="projects-count-badge">0</b></button>
+        <button class="nav-link" data-view="expenses" type="button"><span>▤</span>المصروفات</button>
+        <button class="nav-link admin-only" data-view="team" type="button"><span>♙</span>فريق العمل</button>
+        <button class="nav-link" data-view="settings" type="button"><span>⚙</span>الإعدادات</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="account-mini">
+          <div id="sidebar-avatar" class="avatar">E</div>
+          <div><strong id="sidebar-user-name">—</strong><span id="sidebar-user-role">—</span></div>
+        </div>
+        <button id="logout-button" class="button ghost full" type="button">تسجيل الخروج</button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="topbar-title">
+          <button id="mobile-menu-button" class="icon-button mobile-only" type="button" aria-label="فتح القائمة">☰</button>
+          <div><p id="page-eyebrow" class="eyebrow">نظرة عامة</p><h1 id="page-title">الرئيسية</h1></div>
+        </div>
+        <div class="topbar-actions">
+          <button id="refresh-button" class="icon-button" type="button" title="تحديث">↻</button>
+          <button id="quick-add-project" class="button primary admin-only" type="button">+ مشروع جديد</button>
+          <div class="account-chip">
+            <div id="top-avatar" class="avatar">E</div>
+            <div><strong id="top-user-name">—</strong><span id="top-user-role">—</span></div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content-wrap">
+        <section id="view-dashboard" class="view active">
+          <div class="hero-card">
+            <div>
+              <p class="eyebrow light">متابعة مباشرة</p>
+              <h2>أدر مشاريع التشطيبات من أي جهاز</h2>
+              <p>المشاريع، قائمة التحقق، الملاحظات، المصروفات وصور الفواتير تتزامن لحظيًا مع الفريق.</p>
+            </div>
+            <button class="button light admin-only" data-action="add-project" type="button">إضافة مشروع</button>
+          </div>
+
+          <div class="stats-grid">
+            <article class="stat-card"><span class="stat-icon red">▦</span><div><small>إجمالي المشاريع</small><strong id="stat-projects">0</strong></div></article>
+            <article class="stat-card"><span class="stat-icon gold">◷</span><div><small>قيد التنفيذ</small><strong id="stat-progress">0</strong></div></article>
+            <article class="stat-card"><span class="stat-icon green">✓</span><div><small>مكتملة</small><strong id="stat-completed">0</strong></div></article>
+            <article class="stat-card"><span class="stat-icon blue">ج.م</span><div><small>إجمالي المصروفات</small><strong id="stat-expenses">0</strong></div></article>
+          </div>
+
+          <div class="dashboard-layout">
+            <section class="panel">
+              <div class="panel-head"><div><p class="eyebrow">المشاريع الجارية</p><h3>آخر المشاريع</h3></div><button class="text-button" data-view="projects" type="button">عرض الكل</button></div>
+              <div id="recent-projects" class="project-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><div><p class="eyebrow">التقدم</p><h3>حالة العمل</h3></div></div>
+              <div class="progress-summary">
+                <div id="dashboard-donut" class="donut" style="--value:0"><div><strong id="dashboard-percent">0%</strong><span>متوسط الإنجاز</span></div></div>
+                <div class="summary-lines">
+                  <div><span><i class="dot pending"></i>لم يبدأ</span><b id="summary-pending">0</b></div>
+                  <div><span><i class="dot progress"></i>قيد التنفيذ</span><b id="summary-progress">0</b></div>
+                  <div><span><i class="dot review"></i>للمراجعة</span><b id="summary-review">0</b></div>
+                  <div><span><i class="dot done"></i>مكتمل</span><b id="summary-done">0</b></div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-projects" class="view">
+          <div class="toolbar">
+            <div class="filter-row">
+              <label class="search-box"><span>⌕</span><input id="project-search" type="search" placeholder="بحث باسم المشروع أو العميل..." /></label>
+              <select id="project-status-filter" class="select-control">
+                <option value="all">كل الحالات</option>
+                <option value="pending">لم يبدأ</option>
+                <option value="in_progress">قيد التنفيذ</option>
+                <option value="review">للمراجعة</option>
+                <option value="completed">مكتمل</option>
+              </select>
+            </div>
+            <button class="button primary admin-only" data-action="add-project" type="button">+ إضافة مشروع</button>
+          </div>
+          <div id="projects-grid" class="projects-grid"></div>
+        </section>
+
+        <section id="view-project-detail" class="view project-detail-view">
+          <div class="detail-header">
+            <button id="back-to-projects" class="back-button" type="button">‹</button>
+            <div class="detail-heading"><p id="detail-project-code" class="eyebrow">المشروع</p><h2 id="detail-project-title">—</h2><span id="detail-project-description">—</span></div>
+            <div class="detail-actions">
+              <button id="print-project-button" class="button outline" type="button">تقرير PDF</button>
+              <button id="export-project-button" class="button outline" type="button">تصدير Excel</button>
+              <button id="edit-project-button" class="button primary admin-only" type="button">تعديل</button>
+            </div>
+          </div>
+
+          <div class="detail-grid">
+            <aside class="project-summary-card">
+              <div class="status-block"><span>حالة المشروع</span><strong id="detail-status">—</strong></div>
+              <div class="summary-meta">
+                <div><span>تاريخ التسليم</span><b id="detail-due-date">—</b></div>
+                <div><span>المسؤول</span><b id="detail-lead">لم يبدأ أحد</b></div>
+                <div><span>الموقع</span><b id="detail-location">—</b></div>
+                <div><span>الميزانية</span><b id="detail-budget">—</b></div>
+              </div>
+              <div class="detail-progress"><div><span>نسبة الإنجاز</span><b id="detail-progress-value">0%</b></div><div class="progress-track"><i id="detail-progress-bar"></i></div></div>
+              <button id="claim-project-button" class="button primary full user-only" type="button">✓ ابدأ العمل على المشروع</button>
+              <button id="release-project-button" class="button danger-soft full admin-only" type="button">إلغاء استلام المستخدم</button>
+              <div id="started-info" class="started-info hidden"></div>
+            </aside>
+
+            <div class="project-workspace">
+              <div class="tabs" role="tablist">
+                <button class="tab-button active" data-project-tab="overview" type="button">عن المشروع</button>
+                <button class="tab-button" data-project-tab="notes" type="button">الملاحظات <b id="notes-tab-count">0</b></button>
+                <button class="tab-button" data-project-tab="checklist" type="button">قائمة التحقق <b id="checklist-tab-count">0</b></button>
+                <button class="tab-button" data-project-tab="expenses" type="button">المصروفات <b id="expenses-tab-count">0</b></button>
+                <button class="tab-button" data-project-tab="activity" type="button">السجل</button>
+              </div>
+
+              <section id="project-tab-overview" class="project-tab active">
+                <div class="overview-cards">
+                  <article><span>بنود القائمة</span><strong id="overview-checklist">0 / 0</strong></article>
+                  <article><span>الملاحظات المفتوحة</span><strong id="overview-notes-open">0</strong></article>
+                  <article><span>المصروفات</span><strong id="overview-expenses">0</strong></article>
+                </div>
+                <div class="panel compact"><div class="panel-head"><h3>وصف المشروع</h3></div><p id="overview-description" class="long-text">—</p></div>
+                <div class="panel compact"><div class="panel-head"><h3>آخر النشاطات</h3></div><div id="overview-activity" class="timeline"></div></div>
+              </section>
+
+              <section id="project-tab-notes" class="project-tab">
+                <div class="tab-toolbar"><div><h3>الملاحظات</h3><p>أضف ملاحظة وضع علامة صح عند الانتهاء منها.</p></div><button id="add-note-button" class="button primary" type="button">+ إضافة ملاحظة</button></div>
+                <div class="notes-stats"><div><span>مفتوحة</span><strong id="notes-open-count">0</strong></div><div><span>تمت</span><strong id="notes-done-count">0</strong></div></div>
+                <div id="notes-list" class="notes-list"></div>
+              </section>
+
+              <section id="project-tab-checklist" class="project-tab">
+                <div class="tab-toolbar checklist-toolbar">
+                  <div><h3>قائمة تحقق المشروع</h3><p>كل بند يسجل اسم وتوقيت من أنهى العمل.</p></div>
+                  <div class="button-group admin-only"><button id="import-excel-button" class="button primary" type="button">رفع عناصر بالإكسل</button><button id="add-checklist-button" class="button primary" type="button">+ إضافة عنصر</button></div>
+                </div>
+                <div class="checklist-progress-card"><div><strong id="checklist-progress-numbers">0 / 0 مكتمل</strong><span id="checklist-progress-percent">0%</span></div><div class="progress-track large"><i id="checklist-progress-bar"></i></div><label class="switch-label"><input id="show-item-notes" type="checkbox" /><span></span>عرض ملاحظات البنود</label></div>
+                <div id="checklist-groups" class="checklist-groups"></div>
+              </section>
+
+              <section id="project-tab-expenses" class="project-tab">
+                <div class="tab-toolbar"><div><h3>مصروفات المشروع</h3><p>أضف المصروف وارفع صورة الفاتورة.</p></div><button id="add-expense-button" class="button primary" type="button">+ إضافة مصروف</button></div>
+                <div class="expense-total-card"><span>إجمالي مصروفات المشروع</span><strong id="project-expense-total">0</strong></div>
+                <div id="project-expenses-list" class="expense-list"></div>
+              </section>
+
+              <section id="project-tab-activity" class="project-tab">
+                <div class="tab-toolbar"><div><h3>سجل المشروع</h3><p>تاريخ كامل لمن بدأ وأكمل وعدّل داخل المشروع.</p></div></div>
+                <div id="activity-list" class="timeline"></div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-expenses" class="view">
+          <div class="toolbar"><div><h2>كل المصروفات</h2><p class="muted">مصروفات جميع المشاريع وصور الفواتير.</p></div></div>
+          <div class="panel"><div class="panel-head"><div><p class="eyebrow">الإجمالي</p><h3 id="all-expenses-total">0</h3></div></div><div id="all-expenses-list" class="expense-list"></div></div>
+        </section>
+
+        <section id="view-team" class="view admin-only">
+          <div class="toolbar"><div><h2>فريق العمل</h2><p class="muted">الحسابات تظهر تلقائيًا بعد أول تسجيل دخول.</p></div></div>
+          <div id="team-grid" class="team-grid"></div>
+        </section>
+
+        <section id="view-settings" class="view">
+          <div class="settings-grid">
+            <section class="panel"><div class="panel-head"><div><p class="eyebrow">الحساب</p><h3>بيانات المستخدم</h3></div></div><div id="profile-settings" class="settings-list"></div></section>
+            <section class="panel admin-only"><div class="panel-head"><div><p class="eyebrow">بيانات البداية</p><h3>مشروع الصور</h3></div></div><p class="muted">المشروع الموجود في الصور يتم إنشاؤه تلقائيًا عند أول دخول للمدير إذا كانت قاعدة البيانات فارغة.</p><button id="seed-project-button" class="button outline full" type="button">إنشاء مشروع هليوبوليس الآن</button></section>
+            <section class="panel"><div class="panel-head"><div><p class="eyebrow">الاتصال</p><h3>حالة النظام</h3></div></div><div class="connection-card"><i></i><div><strong>Firebase متصل</strong><span id="firebase-project-id">—</span></div></div></section>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <nav class="mobile-bottom-nav" aria-label="القائمة الرئيسية للموبايل">
+      <button class="mobile-nav-link active" data-view="dashboard" type="button"><span>⌂</span>الرئيسية</button>
+      <button class="mobile-nav-link" data-view="projects" type="button"><span>▦</span>المشاريع</button>
+      <button class="mobile-nav-link" data-view="expenses" type="button"><span>▤</span>المصروفات</button>
+      <button class="mobile-nav-link" data-view="settings" type="button"><span>⚙</span>الإعدادات</button>
+    </nav>
+  </div>
+
+  <div id="mobile-nav-backdrop" class="mobile-nav-backdrop hidden"></div>
+  <div id="modal-backdrop" class="modal-backdrop hidden"></div>
+
+  <dialog id="project-modal" class="modal">
+    <form id="project-form" method="dialog" class="modal-card">
+      <div class="modal-head"><div><p class="eyebrow">إدارة المشروع</p><h3 id="project-modal-title">إضافة مشروع</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <input id="project-id" type="hidden" />
+      <div class="form-grid two">
+        <label class="field"><span>اسم المشروع *</span><input id="project-title" required placeholder="مثال: أ. هشام – هليوبوليس" /></label>
+        <label class="field"><span>كود المشروع</span><input id="project-code" placeholder="1" /></label>
+        <label class="field"><span>اسم العميل</span><input id="project-client" placeholder="أ. هشام" /></label>
+        <label class="field"><span>الموقع</span><input id="project-location" placeholder="هليوبوليس" /></label>
+        <label class="field"><span>تاريخ التسليم</span><input id="project-due-date" type="date" /></label>
+        <label class="field"><span>الميزانية التقديرية</span><input id="project-budget" type="number" min="0" step="0.01" /></label>
+        <label class="field"><span>حالة المشروع</span><select id="project-status"><option value="pending">لم يبدأ</option><option value="in_progress">قيد التنفيذ</option><option value="review">للمراجعة</option><option value="completed">مكتمل</option></select></label>
+      </div>
+      <label class="field"><span>الوصف</span><textarea id="project-description" rows="3" placeholder="تشطيب شقة سكنية"></textarea></label>
+      <label class="field admin-only"><span>تعيين المسؤول</span><select id="project-lead-select"><option value="">متاح لكل الفريق</option></select></label>
+      <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button class="button primary" type="submit">حفظ المشروع</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="note-modal" class="modal small-modal">
+    <form id="note-form" method="dialog" class="modal-card">
+      <div class="modal-head"><div><p class="eyebrow">الملاحظات</p><h3>إضافة ملاحظة</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <label class="field"><span>نوع الملاحظة</span><select id="note-category"><option value="general">ملاحظة عامة</option><option value="issue">مشكلة</option><option value="checklist">ملاحظة قائمة تحقق</option></select></label>
+      <label class="field"><span>التفاصيل *</span><textarea id="note-text" required rows="4" placeholder="اكتب الملاحظة..."></textarea></label>
+      <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button class="button primary" type="submit">إضافة</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="checklist-modal" class="modal small-modal">
+    <form id="checklist-form" method="dialog" class="modal-card">
+      <div class="modal-head"><div><p class="eyebrow">قائمة التحقق</p><h3>إضافة عنصر</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <label class="field"><span>المرحلة</span><input id="checklist-phase" required placeholder="المرحلة الأولى: تأسيس السباكة" /></label>
+      <label class="field"><span>البند *</span><textarea id="checklist-text" required rows="4" placeholder="اكتب البند..."></textarea></label>
+      <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button class="button primary" type="submit">إضافة</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="item-note-modal" class="modal small-modal">
+    <form id="item-note-form" method="dialog" class="modal-card">
+      <div class="modal-head"><div><p class="eyebrow">ملاحظة البند</p><h3>إضافة أو تعديل الملاحظة</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <input id="item-note-id" type="hidden" />
+      <label class="field"><span>الملاحظة</span><textarea id="item-note-text" rows="4" placeholder="تفاصيل أو مشكلة تخص البند..."></textarea></label>
+      <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button class="button primary" type="submit">حفظ</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="expense-modal" class="modal">
+    <form id="expense-form" method="dialog" class="modal-card">
+      <div class="modal-head"><div><p class="eyebrow">مصروفات المشروع</p><h3>إضافة مصروف وفاتورة</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <div class="form-grid two">
+        <label class="field"><span>بيان المصروف *</span><input id="expense-title" required placeholder="شراء خامات كهرباء" /></label>
+        <label class="field"><span>التصنيف</span><select id="expense-category"><option>خامات</option><option>عمالة</option><option>نقل</option><option>معدات</option><option>أخرى</option></select></label>
+        <label class="field"><span>المبلغ *</span><input id="expense-amount" required type="number" min="0.01" step="0.01" /></label>
+        <label class="field"><span>التاريخ *</span><input id="expense-date" required type="date" /></label>
+        <label class="field"><span>رقم الفاتورة</span><input id="expense-invoice-number" placeholder="INV-001" /></label>
+        <label class="field"><span>المورد</span><input id="expense-vendor" placeholder="اسم المورد" /></label>
+      </div>
+      <label class="field"><span>ملاحظات</span><textarea id="expense-note" rows="3"></textarea></label>
+      <label class="upload-field">
+        <input id="expense-receipt" type="file" accept="image/jpeg,image/png,image/webp" />
+        <span class="upload-icon">⇧</span>
+        <strong>رفع صورة الفاتورة</strong>
+        <small>JPG, PNG أو WEBP — يتم ضغطها تلقائيًا للحفظ</small>
+      </label>
+      <div id="receipt-preview" class="receipt-preview hidden"></div>
+      <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button id="save-expense-button" class="button primary" type="submit">حفظ المصروف</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="excel-modal" class="modal">
+    <form id="excel-form" method="dialog" class="modal-card wide-modal">
+      <div class="modal-head"><div><p class="eyebrow">قائمة التحقق</p><h3>رفع عناصر من Excel</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <div class="excel-help"><p>الأعمدة المطلوبة: <b>المرحلة</b> و<b>البند</b>. يمكن إضافة عمود <b>الترتيب</b>.</p><a href="checklist-template.xlsx" download>تحميل نموذج Excel</a></div>
+      <label class="upload-field"><input id="excel-file" type="file" accept=".xlsx,.xls,.csv" /><span class="upload-icon">X</span><strong>اختر ملف Excel أو CSV</strong><small>ستظهر معاينة قبل الحفظ</small></label>
+      <div id="excel-preview-wrap" class="excel-preview-wrap hidden"><div class="preview-summary"><span>العناصر الجاهزة</span><strong id="excel-preview-count">0</strong></div><div class="table-scroll"><table><thead><tr><th>#</th><th>المرحلة</th><th>البند</th></tr></thead><tbody id="excel-preview-body"></tbody></table></div></div>
+      <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button id="import-excel-confirm" class="button primary" type="submit" disabled>إضافة العناصر</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="receipt-viewer-modal" class="modal">
+    <div class="modal-card receipt-viewer-card">
+      <div class="modal-head"><div><p class="eyebrow">الفاتورة</p><h3>صورة الفاتورة</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <p id="receipt-viewer-status" class="muted">جاري تحميل الصورة...</p>
+      <img id="receipt-viewer-image" class="receipt-viewer-image hidden" alt="صورة الفاتورة" />
+      <div class="modal-actions"><button class="button ghost close-modal" type="button">إغلاق</button><a id="receipt-download-link" class="button primary hidden" href="#" download>تحميل الصورة</a></div>
+    </div>
+  </dialog>
+
+  <dialog id="confirm-modal" class="modal small-modal">
+    <div class="modal-card"><div class="modal-head"><div><p class="eyebrow">تأكيد</p><h3 id="confirm-title">هل أنت متأكد؟</h3></div></div><p id="confirm-message" class="long-text"></p><div class="modal-actions"><button id="confirm-cancel" class="button ghost" type="button">إلغاء</button><button id="confirm-accept" class="button danger" type="button">تأكيد</button></div></div>
+  </dialog>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
