@@ -43,7 +43,7 @@ export const APP_CONFIG = {
   },
 
   firebaseConfig: {
-    apiKey: "AIzaSyCBwka63YjKS1Kn4B1AuiU0Te7HuD9H52s",
+    apiKey: "AIzaSyCBwka63YjKS1Kn4B1AuiUOTe7HuD9H52s",
     authDomain: "esraafrh-tasks.firebaseapp.com",
     projectId: "esraafrh-tasks",
     storageBucket: "esraafrh-tasks.firebasestorage.app",
