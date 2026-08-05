@@ -198,7 +198,8 @@
                 <button class="tab-button active" data-project-tab="overview" type="button">عن المشروع</button>
                 <button class="tab-button" data-project-tab="notes" type="button">الملاحظات <b id="notes-tab-count">0</b></button>
                 <button class="tab-button" data-project-tab="checklist" type="button">قائمة التحقق <b id="checklist-tab-count">0</b></button>
-                <button class="tab-button" data-project-tab="expenses" type="button">المصروفات <b id="expenses-tab-count">0</b></button>
+                <button class="tab-button" data-project-tab="expenses" type="button">الحسابات <b id="expenses-tab-count">0</b></button>
+                <button class="tab-button" data-project-tab="progress" type="button">تطورات المشروع <b id="progress-tab-count">0</b></button>
                 <button class="tab-button" data-project-tab="activity" type="button">السجل</button>
               </div>
 
@@ -206,7 +207,7 @@
                 <div class="overview-cards">
                   <article><span>بنود القائمة</span><strong id="overview-checklist">0 / 0</strong></article>
                   <article><span>الملاحظات المفتوحة</span><strong id="overview-notes-open">0</strong></article>
-                  <article><span>المصروفات</span><strong id="overview-expenses">0</strong></article>
+                  <article><span>المستلم</span><strong id="overview-payments">0</strong></article><article><span>المصروفات</span><strong id="overview-expenses">0</strong></article><article><span>الرصيد</span><strong id="overview-balance">0</strong></article>
                 </div>
                 <div class="panel compact"><div class="panel-head"><h3>وصف المشروع</h3></div><p id="overview-description" class="long-text">—</p></div>
                 <div class="panel compact"><div class="panel-head"><h3>آخر النشاطات</h3></div><div id="overview-activity" class="timeline"></div></div>
@@ -228,9 +229,18 @@
               </section>
 
               <section id="project-tab-expenses" class="project-tab">
-                <div class="tab-toolbar"><div><h3>مصروفات المشروع</h3><p>أضف المصروف وارفع صورة الفاتورة.</p></div><button id="add-expense-button" class="button primary" type="button">+ إضافة مصروف</button></div>
-                <div class="expense-total-card"><span>إجمالي مصروفات المشروع</span><strong id="project-expense-total">0</strong></div>
-                <div id="project-expenses-list" class="expense-list"></div>
+                <div class="tab-toolbar"><div><h3>الحسابات المالية</h3><p>دفعات العميل وتكاليف المشروع والرصيد الحالي.</p></div><div class="button-group"><button id="add-payment-button" class="button outline" type="button">+ دفعة من العميل</button><button id="add-expense-button" class="button primary" type="button">+ تكلفة مشروع</button></div></div>
+                <div class="finance-summary-grid">
+                  <article><span>المستلم من العميل</span><strong id="project-payments-total">0</strong></article>
+                  <article><span>تكاليف المشروع</span><strong id="project-expense-total">0</strong></article>
+                  <article><span>الرصيد المتبقي</span><strong id="project-balance-total">0</strong></article>
+                </div>
+                <div class="finance-columns"><section><h4>دفعات العميل</h4><div id="project-payments-list" class="expense-list"></div></section><section><h4>تكاليف المشروع</h4><div id="project-expenses-list" class="expense-list"></div></section></div>
+              </section>
+
+              <section id="project-tab-progress" class="project-tab">
+                <div class="tab-toolbar"><div><h3>تطورات المشروع</h3><p>صور مؤرخة توثق مراحل التنفيذ.</p></div><button id="add-progress-button" class="button primary" type="button">+ إضافة تطور</button></div>
+                <div id="project-progress-gallery" class="progress-gallery"></div>
               </section>
 
               <section id="project-tab-activity" class="project-tab">
@@ -254,7 +264,7 @@
         <section id="view-settings" class="view">
           <div class="settings-grid">
             <section class="panel"><div class="panel-head"><div><p class="eyebrow">الحساب</p><h3>بيانات المستخدم</h3></div></div><div id="profile-settings" class="settings-list"></div></section>
-            <section class="panel admin-only"><div class="panel-head"><div><p class="eyebrow">بيانات البداية</p><h3>مشروع الصور</h3></div></div><p class="muted">المشروع الموجود في الصور يتم إنشاؤه تلقائيًا عند أول دخول للمدير إذا كانت قاعدة البيانات فارغة.</p><button id="seed-project-button" class="button outline full" type="button">إنشاء مشروع هليوبوليس الآن</button></section>
+            <section class="panel admin-only"><div class="panel-head"><div><p class="eyebrow">الاستيراد والنسخ الاحتياطي</p><h3>إدارة البيانات</h3></div></div><p class="muted">أنشئ مشروعًا كاملًا من Excel أو حمّل نسخة احتياطية لكل بيانات المشاريع الظاهرة.</p><div class="button-group"><button id="import-project-excel-button" class="button primary" type="button">استيراد مشروع من Excel</button><button id="download-project-template-button" class="button outline" type="button">تحميل نموذج Excel</button><button id="backup-data-button" class="button outline" type="button">نسخة احتياطية JSON</button></div></section><section class="panel admin-only"><div class="panel-head"><div><p class="eyebrow">بيانات البداية</p><h3>مشروع الصور</h3></div></div><p class="muted">المشروع الموجود في الصور يتم إنشاؤه تلقائيًا عند أول دخول للمدير إذا كانت قاعدة البيانات فارغة.</p><button id="seed-project-button" class="button outline full" type="button">إنشاء مشروع هليوبوليس الآن</button></section>
             <section class="panel"><div class="panel-head"><div><p class="eyebrow">الاتصال</p><h3>حالة النظام</h3></div></div><div class="connection-card"><i></i><div><strong>Firebase متصل</strong><span id="firebase-project-id">—</span></div></div></section>
           </div>
         </section>
@@ -315,6 +325,37 @@
       <input id="item-note-id" type="hidden" />
       <label class="field"><span>الملاحظة</span><textarea id="item-note-text" rows="4" placeholder="تفاصيل أو مشكلة تخص البند..."></textarea></label>
       <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button class="button primary" type="submit">حفظ</button></div>
+    </form>
+  </dialog>
+
+
+  <dialog id="payment-modal" class="modal">
+    <form id="payment-form" method="dialog" class="modal-card">
+      <div class="modal-head"><div><p class="eyebrow">دفعات العميل</p><h3>إضافة مبلغ مستلم</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <div class="form-grid two"><label class="field"><span>المبلغ *</span><input id="payment-amount" type="number" min="0.01" step="0.01" required /></label><label class="field"><span>التاريخ *</span><input id="payment-date" type="date" required /></label><label class="field"><span>طريقة الدفع</span><select id="payment-method"><option>نقدي</option><option>تحويل بنكي</option><option>إنستاباي</option><option>شيك</option><option>أخرى</option></select></label><label class="field"><span>رقم الدفعة / الإيصال</span><input id="payment-reference" /></label></div>
+      <label class="field"><span>ملاحظات</span><textarea id="payment-note" rows="3"></textarea></label>
+      <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button id="save-payment-button" class="button primary" type="submit">حفظ الدفعة</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="progress-modal" class="modal">
+    <form id="progress-form" method="dialog" class="modal-card">
+      <div class="modal-head"><div><p class="eyebrow">تطورات المشروع</p><h3>إضافة صورة تطور</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <div class="form-grid two"><label class="field"><span>التاريخ *</span><input id="progress-date" type="date" required /></label><label class="field"><span>عنوان المرحلة *</span><input id="progress-title" required placeholder="تم الانتهاء من الكهرباء" /></label></div>
+      <label class="field"><span>الوصف</span><textarea id="progress-description" rows="3"></textarea></label>
+      <label class="upload-field"><input id="progress-image" type="file" accept="image/jpeg,image/png,image/webp" required /><span class="upload-icon">⇧</span><strong>اختر صورة التطور</strong><small>يتم ضغطها تلقائيًا للحفظ داخل Firestore</small></label>
+      <div id="progress-preview" class="receipt-preview hidden"></div>
+      <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button id="save-progress-button" class="button primary" type="submit">حفظ التطور</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="project-import-modal" class="modal">
+    <form id="project-import-form" method="dialog" class="modal-card wide-modal">
+      <div class="modal-head"><div><p class="eyebrow">استيراد شامل</p><h3>إنشاء مشروع كامل من Excel</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <p class="muted">يقرأ الأوراق: بيانات المشروع، قائمة التحقق، الملاحظات، دفعات العميل، المصروفات. ستظهر معاينة قبل الحفظ.</p>
+      <label class="upload-field"><input id="project-import-file" type="file" accept=".xlsx,.xls" required /><span class="upload-icon">⇧</span><strong>اختر ملف Excel</strong></label>
+      <div id="project-import-preview" class="import-summary hidden"></div>
+      <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button id="confirm-project-import" class="button primary" type="submit" disabled>إنشاء المشروع</button></div>
     </form>
   </dialog>
 

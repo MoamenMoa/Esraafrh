@@ -1,3 +1,1 @@
-Esraafrh Project Manager — Production Release 1.0
-Build date: 2026-07-27
-Mode: Firebase production only — no demo/local data mode
+2.0.0

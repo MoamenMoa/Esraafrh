@@ -64,3 +64,11 @@
 - Firebase Email/Password Auth: https://firebase.google.com/docs/auth/web/password-auth
 - Firestore Security Rules: https://firebase.google.com/docs/firestore/security/get-started
 - GitHub Pages publishing source: https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
+
+## إضافات النسخة 2.0
+- فصل دفعات العميل عن تكاليف المشروع وحساب الرصيد تلقائيًا.
+- معرض صور لتطورات المشروع.
+- استيراد مشروع كامل من Excel من أوراق مستقلة.
+- نموذج `project-import-template.xlsx` جاهز للاستخدام.
+- تصدير مالي موسع ونسخة احتياطية JSON.
+- يلزم إعادة نشر `firestore.rules` بعد التحديث.
