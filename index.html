@@ -252,8 +252,24 @@
         </section>
 
         <section id="view-expenses" class="view">
-          <div class="toolbar"><div><h2>كل المصروفات</h2><p class="muted">مصروفات جميع المشاريع وصور الفواتير.</p></div></div>
-          <div class="panel"><div class="panel-head"><div><p class="eyebrow">الإجمالي</p><h3 id="all-expenses-total">0</h3></div></div><div id="all-expenses-list" class="expense-list"></div></div>
+          <div class="toolbar">
+            <div><h2>إدارة المصروفات</h2><p class="muted">سجل المصروفات العامة ومصروفات المشاريع من مكان واحد، ويمكن ربط أي مصروف بمشروع عند الحاجة.</p></div>
+            <button id="global-add-expense-button" class="button primary" type="button">+ إضافة مصروف</button>
+          </div>
+          <div class="finance-summary-grid expense-global-summary">
+            <article><span>إجمالي المصروفات</span><strong id="all-expenses-total">0</strong></article>
+            <article><span>مصروفات المشاريع</span><strong id="project-expenses-global-total">0</strong></article>
+            <article><span>مصروفات عامة</span><strong id="general-expenses-total">0</strong></article>
+          </div>
+          <div class="panel">
+            <div class="expense-filters">
+              <label class="search-box"><span>⌕</span><input id="expense-search" placeholder="بحث بالبيان أو المورد أو المشروع" /></label>
+              <select id="expense-scope-filter" class="select-control"><option value="all">كل المصروفات</option><option value="project">مرتبطة بمشاريع</option><option value="general">مصروفات عامة</option></select>
+              <select id="expense-project-filter" class="select-control"><option value="all">كل المشاريع</option></select>
+              <select id="expense-category-filter" class="select-control"><option value="all">كل التصنيفات</option><option>خامات</option><option>عمالة</option><option>نقل</option><option>معدات</option><option>إيجار</option><option>رواتب</option><option>مرافق</option><option>أخرى</option></select>
+            </div>
+            <div id="all-expenses-list" class="expense-list"></div>
+          </div>
         </section>
 
         <section id="view-team" class="view admin-only">
@@ -361,10 +377,11 @@
 
   <dialog id="expense-modal" class="modal">
     <form id="expense-form" method="dialog" class="modal-card">
-      <div class="modal-head"><div><p class="eyebrow">مصروفات المشروع</p><h3>إضافة مصروف وفاتورة</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <div class="modal-head"><div><p class="eyebrow" id="expense-modal-eyebrow">إدارة المصروفات</p><h3 id="expense-modal-title">إضافة مصروف وفاتورة</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <label class="field"><span>ربط المصروف بمشروع</span><select id="expense-project-select"><option value="">مصروف عام — غير مرتبط بمشروع</option></select><small id="expense-project-help">اختياري: اختر مشروعًا ليظهر المصروف ضمن حسابات المشروع.</small></label>
       <div class="form-grid two">
-        <label class="field"><span>بيان المصروف *</span><input id="expense-title" required placeholder="شراء خامات كهرباء" /></label>
-        <label class="field"><span>التصنيف</span><select id="expense-category"><option>خامات</option><option>عمالة</option><option>نقل</option><option>معدات</option><option>أخرى</option></select></label>
+        <label class="field"><span>بيان المصروف *</span><input id="expense-title" required placeholder="شراء خامات / إيجار / مواصلات" /></label>
+        <label class="field"><span>التصنيف</span><select id="expense-category"><option>خامات</option><option>عمالة</option><option>نقل</option><option>معدات</option><option>إيجار</option><option>رواتب</option><option>مرافق</option><option>أخرى</option></select></label>
         <label class="field"><span>المبلغ *</span><input id="expense-amount" required type="number" min="0.01" step="0.01" /></label>
         <label class="field"><span>التاريخ *</span><input id="expense-date" required type="date" /></label>
         <label class="field"><span>رقم الفاتورة</span><input id="expense-invoice-number" placeholder="INV-001" /></label>

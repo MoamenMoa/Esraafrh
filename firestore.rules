@@ -351,5 +351,34 @@ service cloud.firestore {
         allow update, delete: if admin();
       }
     }
+
+    /* مصروفات عامة غير مرتبطة بمشروع */
+    match /generalExpenses/{expenseId} {
+      allow read: if activeUser();
+
+      allow create: if activeUser()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.projectId == ''
+        && request.resource.data.expenseScope == 'general'
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0;
+
+      allow update: if admin()
+        || (activeUser() && resource.data.createdBy == request.auth.uid);
+
+      allow delete: if admin()
+        || (activeUser() && resource.data.createdBy == request.auth.uid);
+
+      match /receipt/{receiptId} {
+        allow read: if activeUser();
+        allow create: if activeUser()
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.contentType == 'image/jpeg'
+          && request.resource.data.dataUrl is string
+          && request.resource.data.dataUrl.size() < 850000;
+        allow delete: if admin() || activeUser();
+        allow update: if false;
+      }
+    }
   }
 }
