@@ -52,7 +52,7 @@ const ROLE_LABEL = { admin: "مدير النظام", user: "عضو فريق" };
 const state = {
   app: null, auth: null, db: null,
   authUser: null, profile: null,
-  projects: [], users: [], allExpenses: [], projectExpensesGlobal: [], generalExpenses: [],
+  projects: [], users: [], allExpenses: [], projectExpensesGlobal: [], generalExpenses: [], allIncome: [], projectIncomeGlobal: [], generalIncome: [],
   selectedProjectId: null, selectedProject: null,
   checklist: [], notes: [], expenses: [], payments: [], progressUpdates: [], activity: [],
   currentView: "dashboard", currentProjectTab: "overview",
@@ -275,16 +275,35 @@ function subscribeGlobalData() {
     });
     renderAllExpenses(); renderDashboard();
   };
-  const expensesQuery = query(collectionGroup(state.db, "expenses"), orderBy("date", "desc"));
+  // Collection-group queries are intentionally sorted in the browser. This avoids
+  // requiring a composite index and keeps the global financial center reliable.
+  const expensesQuery = query(collectionGroup(state.db, "expenses"));
   state.unsubscribers.push(onSnapshot(expensesQuery, (snap) => {
     state.projectExpensesGlobal = snap.docs.map((d) => ({ id: d.id, expenseScope: "project", ...d.data() }));
     refreshGlobalExpenses();
-  }, (error) => console.warn("Project expenses query", error)));
-  const generalExpensesQuery = query(collection(state.db, "generalExpenses"), orderBy("date", "desc"));
+  }, (error) => { console.warn("Project expenses query", error); toast("تعذر تحميل مصروفات المشاريع. تأكد من نشر أحدث قواعد Firestore.", "error", 6500); }));
+  const generalExpensesQuery = query(collection(state.db, "generalExpenses"));
   state.unsubscribers.push(onSnapshot(generalExpensesQuery, (snap) => {
     state.generalExpenses = snap.docs.map((d) => ({ id: d.id, expenseScope: "general", ...d.data() }));
     refreshGlobalExpenses();
-  }, (error) => console.warn("General expenses query", error)));
+  }, (error) => { console.warn("General expenses query", error); toast("تعذر تحميل المصروفات العامة.", "error", 6500); }));
+
+  const refreshGlobalIncome = () => {
+    state.allIncome = [...state.projectIncomeGlobal, ...state.generalIncome].sort((a, b) => {
+      const ad = String(a.date || ""); const bd = String(b.date || "");
+      if (ad !== bd) return bd.localeCompare(ad);
+      return (toDate(b.createdAt)?.getTime() || 0) - (toDate(a.createdAt)?.getTime() || 0);
+    });
+    renderAllIncome();
+  };
+  state.unsubscribers.push(onSnapshot(query(collectionGroup(state.db, "payments")), (snap) => {
+    state.projectIncomeGlobal = snap.docs.map((d) => ({ id: d.id, incomeScope: "project", ...d.data() }));
+    refreshGlobalIncome();
+  }, (error) => { console.warn("Project income query", error); toast("تعذر تحميل وارد المشاريع. تأكد من نشر أحدث قواعد Firestore.", "error", 6500); }));
+  state.unsubscribers.push(onSnapshot(query(collection(state.db, "generalIncome")), (snap) => {
+    state.generalIncome = snap.docs.map((d) => ({ id: d.id, incomeScope: "general", ...d.data() }));
+    refreshGlobalIncome();
+  }, (error) => { console.warn("General income query", error); toast("تعذر تحميل الوارد العام.", "error", 6500); }));
 }
 
 function navigate(view) {
@@ -416,6 +435,7 @@ function renderAllExpenses() {
   byId("all-expenses-total").textContent = formatMoney(total);
   byId("project-expenses-global-total").textContent = formatMoney(projectTotal);
   byId("general-expenses-total").textContent = formatMoney(generalTotal);
+  const netEl = byId("global-net-balance"); if (netEl) netEl.textContent = formatMoney(state.allIncome.reduce((s,x)=>s+(Number(x.amount)||0),0) - total);
   const search = normalize(byId("expense-search")?.value || "");
   const scope = byId("expense-scope-filter")?.value || "all";
   const projectId = byId("expense-project-filter")?.value || "all";
@@ -431,6 +451,42 @@ function renderAllExpenses() {
   byId("all-expenses-list").innerHTML = filtered.length
     ? filtered.map((expense) => expenseHTML(expense, true, true)).join("")
     : `<div class="empty-state"><strong>لا توجد مصروفات مطابقة</strong><span>غيّر الفلاتر أو أضف مصروفًا جديدًا.</span></div>`;
+}
+
+
+function populateIncomeProjectSelectors() {
+  const modalSelect = byId("income-project-select");
+  const filterSelect = byId("income-project-filter");
+  const options = state.projects.map((p) => `<option value="${p.id}">${escapeHTML(p.title)}${p.code ? ` — ${escapeHTML(p.code)}` : ""}</option>`).join("");
+  if (modalSelect) { const current = modalSelect.value; modalSelect.innerHTML = `<option value="">وارد عام — غير مرتبط بمشروع</option>${options}`; modalSelect.value = [...modalSelect.options].some(o => o.value === current) ? current : ""; }
+  if (filterSelect) { const current = filterSelect.value || "all"; filterSelect.innerHTML = `<option value="all">كل المشاريع</option>${options}`; filterSelect.value = [...filterSelect.options].some(o => o.value === current) ? current : "all"; }
+}
+
+function globalIncomeHTML(item) {
+  const scope = item.incomeScope || (item.projectId ? "project" : "general");
+  const scopeLabel = scope === "general" ? "وارد عام" : `مرتبط بمشروع${item.projectTitle ? `: ${escapeHTML(item.projectTitle)}` : ""}`;
+  const canDelete = isAdmin() || (scope === "general" && item.createdBy === state.authUser?.uid);
+  return `<article class="expense-card income-card"><div><h4>${escapeHTML(item.title || (scope === "project" ? "دفعة من العميل" : "وارد"))}</h4><p>${formatDate(item.date ? `${item.date}T12:00:00` : item.createdAt)} — ${escapeHTML(item.method || "—")}${item.reference ? ` — رقم: ${escapeHTML(item.reference)}` : ""}</p><span class="expense-scope-badge ${scope}">${scopeLabel}</span>${item.note ? `<p>${escapeHTML(item.note)}</p>` : ""}</div><div><div class="income-amount">+ ${formatMoney(item.amount)}</div>${canDelete ? `<button class="row-menu" data-delete-income="${item.id}" data-income-project="${item.projectId || ""}" data-income-scope="${scope}" type="button">حذف</button>` : ""}</div></article>`;
+}
+
+function renderAllIncome() {
+  populateIncomeProjectSelectors();
+  const projectTotal = state.projectIncomeGlobal.reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
+  const generalTotal = state.generalIncome.reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
+  const total = projectTotal + generalTotal;
+  const set = (id, value) => { const el = byId(id); if (el) el.textContent = formatMoney(value); };
+  set("all-income-total", total); set("project-income-global-total", projectTotal); set("general-income-total", generalTotal);
+  const netEl = byId("global-net-balance"); if (netEl) netEl.textContent = formatMoney(total - state.allExpenses.reduce((s,x)=>s+(Number(x.amount)||0),0));
+  const search = normalize(byId("income-search")?.value || "");
+  const scope = byId("income-scope-filter")?.value || "all";
+  const projectId = byId("income-project-filter")?.value || "all";
+  const filtered = state.allIncome.filter((item) => {
+    const itemScope = item.incomeScope || (item.projectId ? "project" : "general");
+    const haystack = normalize(`${item.title || ""} ${item.projectTitle || ""} ${item.reference || ""} ${item.note || ""} ${item.method || ""}`);
+    return (!search || haystack.includes(search)) && (scope === "all" || itemScope === scope) && (projectId === "all" || item.projectId === projectId);
+  });
+  const list = byId("all-income-list");
+  if (list) list.innerHTML = filtered.length ? filtered.map(globalIncomeHTML).join("") : `<div class="empty-state"><strong>لا توجد مبالغ واردة مطابقة</strong><span>أضف واردًا جديدًا أو غيّر الفلاتر.</span></div>`;
 }
 
 function openProject(projectId) {
@@ -1061,9 +1117,44 @@ async function seedStarterProject(silent = false) {
 }
 
 
-function openPaymentModal(){ if(!canWork()) return toast("ابدأ العمل على المشروع أولًا.","info"); DOM.paymentForm.reset(); byId("payment-date").value=new Date().toISOString().slice(0,10); openModal(DOM.paymentModal); }
-async function addPayment(event){ event.preventDefault(); const project=activeProject(); if(!project||!canWork(project)) return; const amount=Number(byId("payment-amount").value); if(!(amount>0)) return toast("اكتب مبلغًا صحيحًا.","error"); const btn=byId("save-payment-button"); setBusy(btn,true); try{ const ref=doc(collection(state.db,"projects",project.id,"payments")); const batch=writeBatch(state.db); batch.set(ref,{projectId:project.id,projectTitle:project.title,amount,date:byId("payment-date").value,method:byId("payment-method").value,reference:byId("payment-reference").value.trim(),note:byId("payment-note").value.trim(),createdBy:state.authUser.uid,createdByName:state.profile.name,createdAt:serverTimestamp(),updatedAt:serverTimestamp()}); batch.update(doc(state.db,"projects",project.id),{paymentsTotal:increment(amount),updatedAt:serverTimestamp()}); await batch.commit(); await addActivity(project.id,"payment_added",`أضاف ${state.profile.name} دفعة عميل بقيمة ${formatMoney(amount)}.`); closeModal(DOM.paymentModal); toast("تم حفظ الدفعة.","success"); }catch(e){toast(readableError(e),"error")}finally{setBusy(btn,false)} }
-async function deletePayment(id){ const project=activeProject(), payment=state.payments.find(x=>x.id===id); if(!project||!payment||!isAdmin()) return; confirmAction("حذف الدفعة",`سيتم حذف ${formatMoney(payment.amount)}.`,async()=>{const b=writeBatch(state.db);b.delete(doc(state.db,"projects",project.id,"payments",id));b.update(doc(state.db,"projects",project.id),{paymentsTotal:increment(-(Number(payment.amount)||0)),updatedAt:serverTimestamp()});await b.commit();toast("تم حذف الدفعة.","success")},"حذف"); }
+function openPaymentModal(context = "project") {
+  DOM.paymentForm.reset(); populateIncomeProjectSelectors();
+  const select = byId("income-project-select"); const project = activeProject();
+  state.paymentEntryContext = context;
+  if (context === "project") {
+    if (!project || !canWork(project)) return toast("ابدأ العمل على المشروع أولًا.", "info");
+    select.value = project.id; select.disabled = true;
+    byId("income-project-help").textContent = "هذا الوارد سيُسجل تلقائيًا ضمن دفعات المشروع الحالي.";
+  } else {
+    select.disabled = false; select.value = "";
+    byId("income-project-help").textContent = "اتركه كوارد عام، أو اختر مشروعًا لاحتسابه ضمن دفعات المشروع.";
+  }
+  byId("payment-date").value = new Date().toISOString().slice(0,10); openModal(DOM.paymentModal);
+}
+async function addPayment(event) {
+  event.preventDefault();
+  const selectedProjectId = byId("income-project-select")?.value || "";
+  const project = selectedProjectId ? state.projects.find(p=>p.id===selectedProjectId) : null;
+  if (project && !canWork(project)) return toast("لا تملك صلاحية إضافة وارد لهذا المشروع قبل بدء العمل عليه.", "info");
+  const amount = Number(byId("payment-amount").value); if (!(amount>0)) return toast("اكتب مبلغًا صحيحًا.","error");
+  const btn=byId("save-payment-button"); setBusy(btn,true);
+  const isGeneral=!project;
+  try {
+    const ref = isGeneral ? doc(collection(state.db,"generalIncome")) : doc(collection(state.db,"projects",project.id,"payments"));
+    const payload={projectId:project?.id||"",projectTitle:project?.title||"",incomeScope:isGeneral?"general":"project",title:byId("payment-title")?.value.trim()||"",amount,date:byId("payment-date").value,method:byId("payment-method").value,reference:byId("payment-reference").value.trim(),note:byId("payment-note").value.trim(),createdBy:state.authUser.uid,createdByName:state.profile.name,createdAt:serverTimestamp(),updatedAt:serverTimestamp()};
+    const batch=writeBatch(state.db); batch.set(ref,payload);
+    if(project) batch.update(doc(state.db,"projects",project.id),{paymentsTotal:increment(amount),updatedAt:serverTimestamp()});
+    await batch.commit();
+    if(project) await addActivity(project.id,"payment_added",`أضاف ${state.profile.name} مبلغًا واردًا بقيمة ${formatMoney(amount)}.`);
+    closeModal(DOM.paymentModal); toast(isGeneral?"تم حفظ الوارد العام.":"تم حفظ وارد المشروع.","success");
+  } catch(e){toast(readableError(e),"error")} finally{setBusy(btn,false)}
+}
+async function deletePayment(id){ const project=activeProject(), payment=state.payments.find(x=>x.id===id); if(!project||!payment||!isAdmin()) return; confirmAction("حذف الدفعة",`سيتم حذف ${formatMoney(payment.amount)}.`,async()=>{const b=writeBatch(state.db);b.delete(doc(state.db,"projects",project.id,"payments",id));b.update(doc(state.db,"projects",project.id),{paymentsTotal:increment(-(Number(payment.amount)||0)),updatedAt:serverTimestamp()});await b.commit();toast("تم حذف الدفعة.","success")},"حذف") }
+async function deleteIncome(id, projectId="", scope="general") {
+  const isGeneral=scope==="general"; const item=isGeneral?state.generalIncome.find(x=>x.id===id):state.projectIncomeGlobal.find(x=>x.id===id&&x.projectId===projectId); const project=!isGeneral?state.projects.find(p=>p.id===projectId):null;
+  if(!item||(!isAdmin()&&item.createdBy!==state.authUser?.uid)) return;
+  confirmAction("حذف الوارد",`سيتم حذف مبلغ ${formatMoney(item.amount)}.`,async()=>{try{const b=writeBatch(state.db);if(isGeneral)b.delete(doc(state.db,"generalIncome",id));else{b.delete(doc(state.db,"projects",project.id,"payments",id));b.update(doc(state.db,"projects",project.id),{paymentsTotal:increment(-(Number(item.amount)||0)),updatedAt:serverTimestamp()})}await b.commit();toast("تم حذف الوارد.","success")}catch(e){toast(readableError(e),"error")}},"حذف");
+}
 function previewProgress(file){state.progressFile=file||null;const w=byId("progress-preview");if(!file){w.classList.add("hidden");w.innerHTML="";return}const u=URL.createObjectURL(file);w.classList.remove("hidden");w.innerHTML=`<img src="${u}" alt="معاينة"><div><strong>${escapeHTML(file.name)}</strong></div>`}
 function openProgressModal(){if(!canWork())return toast("ابدأ العمل على المشروع أولًا.","info");DOM.progressForm.reset();previewProgress(null);byId("progress-date").value=new Date().toISOString().slice(0,10);openModal(DOM.progressModal)}
 async function addProgressUpdate(event){event.preventDefault();const project=activeProject();if(!project||!canWork(project)||!state.progressFile)return;const btn=byId("save-progress-button");setBusy(btn,true);try{const image=await compressInvoiceImage(state.progressFile);await addDoc(collection(state.db,"projects",project.id,"progressUpdates"),{date:byId("progress-date").value,title:byId("progress-title").value.trim(),description:byId("progress-description").value.trim(),imageDataUrl:image.dataUrl,imageName:image.name,createdBy:state.authUser.uid,createdByName:state.profile.name,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});await updateDoc(doc(state.db,"projects",project.id),{progressUpdatesTotal:increment(1),updatedAt:serverTimestamp()});await addActivity(project.id,"progress_added",`أضاف ${state.profile.name} صورة تطور للمشروع.`);closeModal(DOM.progressModal);toast("تمت إضافة التطور.","success")}catch(e){toast(readableError(e),"error")}finally{setBusy(btn,false)}}
@@ -1073,7 +1164,7 @@ function val(row,...keys){for(const k of keys){const hit=Object.keys(row).find(x
 async function handleProjectImportFile(file){if(!file||!window.XLSX)return;try{const wb=window.XLSX.read(await file.arrayBuffer(),{type:"array"});const infoRows=sheetRows(wb,["بيانات المشروع","المشروع","project"]);let info={};if(infoRows.length){if(Object.keys(infoRows[0]).some(k=>["الحقل","البيان","field"].includes(normalize(k)))) infoRows.forEach(r=>info[normalize(val(r,"الحقل","البيان","field"))]=val(r,"القيمة","value"));else info=infoRows[0]}const get=(...k)=>{for(const x of k){const direct=val(info,x);if(direct!=="")return direct;if(info[normalize(x)]!==undefined)return info[normalize(x)]}return""};const data={project:{code:get("الكود","كود المشروع","code"),title:get("اسم المشروع","المشروع","title"),client:get("العميل","اسم العميل","client"),location:get("الموقع","location"),description:get("الوصف","description"),dueDate:get("تاريخ التسليم","due date"),budget:Number(get("الميزانية","budget"))||0,status:get("الحالة","status")||"pending"},checklist:sheetRows(wb,["قائمة التحقق","checklist"]).map((r,i)=>({phase:val(r,"المرحلة","phase")||"عام",text:val(r,"البند","المهمة","item","task"),order:Number(val(r,"الترتيب","order"))||i+1})).filter(x=>x.text),notes:sheetRows(wb,["الملاحظات","notes"]).map(r=>({text:val(r,"الملاحظة","النص","note"),category:val(r,"التصنيف","category")||"general",completed:["نعم","yes","true","1"].includes(normalize(val(r,"مغلقة","مكتملة","completed")))})).filter(x=>x.text),payments:sheetRows(wb,["دفعات العميل","الدفعات","payments"]).map(r=>({amount:Number(val(r,"المبلغ","amount"))||0,date:val(r,"التاريخ","date"),method:val(r,"طريقة الدفع","method"),reference:val(r,"رقم الدفعة","رقم الإيصال","reference"),note:val(r,"ملاحظات","note")})).filter(x=>x.amount>0),expenses:sheetRows(wb,["المصروفات","تكاليف المشروع","expenses"]).map(r=>({title:val(r,"البيان","المصروف","title"),category:val(r,"التصنيف","category")||"أخرى",amount:Number(val(r,"المبلغ","amount"))||0,date:val(r,"التاريخ","date"),vendor:val(r,"المورد","vendor"),invoiceNumber:val(r,"رقم الفاتورة","invoice"),note:val(r,"ملاحظات","note")})).filter(x=>x.title&&x.amount>0)};if(!data.project.title)throw new Error("ورقة بيانات المشروع لا تحتوي اسم المشروع.");state.projectImportData=data;const ep=data.expenses.reduce((s,x)=>s+x.amount,0),pa=data.payments.reduce((s,x)=>s+x.amount,0);byId("project-import-preview").innerHTML=`<div><b>${escapeHTML(data.project.title)}</b><span>قائمة التحقق: ${data.checklist.length}</span><span>الملاحظات: ${data.notes.length}</span><span>دفعات العميل: ${data.payments.length} (${formatMoney(pa)})</span><span>المصروفات: ${data.expenses.length} (${formatMoney(ep)})</span><span>الرصيد: ${formatMoney(pa-ep)}</span></div>`;byId("project-import-preview").classList.remove("hidden");byId("confirm-project-import").disabled=false}catch(e){state.projectImportData=null;toast(readableError(e),"error")}}
 async function importFullProject(event){event.preventDefault();const d=state.projectImportData;if(!d||!isAdmin())return;const btn=byId("confirm-project-import");setBusy(btn,true,"جاري الاستيراد...");try{const existing=state.projects.find(p=>normalize(p.code)&&normalize(p.code)===normalize(d.project.code));if(existing)throw new Error("يوجد مشروع بنفس الكود. غيّر الكود لمنع التكرار.");const ref=doc(collection(state.db,"projects"));const expensesTotal=d.expenses.reduce((s,x)=>s+x.amount,0),paymentsTotal=d.payments.reduce((s,x)=>s+x.amount,0),done=d.notes.filter(x=>x.completed).length;await setDoc(ref,{...d.project,assignedUserId:"",assignedUserName:"",startedByUserId:"",startedByUserName:"",startedAt:null,visibleToAll:true,checklistTotal:d.checklist.length,checklistDone:0,notesTotal:d.notes.length,notesDone:done,expensesTotal,paymentsTotal,progressUpdatesTotal:0,progress:0,createdBy:state.authUser.uid,createdByName:state.profile.name,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});const all=[...d.checklist.map(x=>["checklist",{...x,completed:false,note:"",completedBy:"",completedByName:"",completedAt:null}]),...d.notes.map(x=>["notes",{...x,createdBy:state.authUser.uid,createdByName:state.profile.name,completedBy:x.completed?state.authUser.uid:"",completedByName:x.completed?state.profile.name:"",completedAt:x.completed?serverTimestamp():null}]),...d.payments.map(x=>["payments",{...x,projectId:ref.id,projectTitle:d.project.title}]),...d.expenses.map(x=>["expenses",{...x,projectId:ref.id,projectTitle:d.project.title,hasReceipt:false}])];for(let o=0;o<all.length;o+=400){const b=writeBatch(state.db);all.slice(o,o+400).forEach(([col,x])=>b.set(doc(collection(ref,col)),{...x,createdBy:x.createdBy||state.authUser.uid,createdByName:x.createdByName||state.profile.name,createdAt:serverTimestamp(),updatedAt:serverTimestamp()}));await b.commit()}await addActivity(ref.id,"project_excel_import",`استورد المدير المشروع كاملًا من Excel.`);closeModal(DOM.projectImportModal);toast("تم إنشاء المشروع واستيراد بياناته.","success")}catch(e){toast(readableError(e),"error")}finally{setBusy(btn,false)}}
 function downloadProjectTemplate(){const wb=window.XLSX.utils.book_new();const sheets={"بيانات المشروع":[["الحقل","القيمة"],["اسم المشروع",""],["كود المشروع",""],["اسم العميل",""],["الموقع",""],["الوصف",""],["تاريخ التسليم","2027-01-13"],["الميزانية",0],["الحالة","pending"]],"قائمة التحقق":[["الترتيب","المرحلة","البند"],[1,"المرحلة الأولى",""]],"الملاحظات":[["الملاحظة","التصنيف","مغلقة"],["","general","لا"]],"دفعات العميل":[["المبلغ","التاريخ","طريقة الدفع","رقم الدفعة","ملاحظات"],[0,"","نقدي","",""]],"المصروفات":[["البيان","التصنيف","المبلغ","التاريخ","المورد","رقم الفاتورة","ملاحظات"],["","خامات",0,"","","",""]]};Object.entries(sheets).forEach(([n,r])=>window.XLSX.utils.book_append_sheet(wb,window.XLSX.utils.aoa_to_sheet(r),n));window.XLSX.writeFile(wb,"نموذج-استيراد-مشروع-إشراف.xlsx")}
-function backupData(){const data={exportedAt:new Date().toISOString(),projects:state.projects,generalExpenses:state.generalExpenses,allExpenses:state.allExpenses,currentProject:activeProject()?{project:activeProject(),checklist:state.checklist,notes:state.notes,expenses:state.expenses,payments:state.payments,progressUpdates:state.progressUpdates,activity:state.activity}:null};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=`esraafrh-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
+function backupData(){const data={exportedAt:new Date().toISOString(),projects:state.projects,generalExpenses:state.generalExpenses,allExpenses:state.allExpenses,generalIncome:state.generalIncome,allIncome:state.allIncome,currentProject:activeProject()?{project:activeProject(),checklist:state.checklist,notes:state.notes,expenses:state.expenses,payments:state.payments,progressUpdates:state.progressUpdates,activity:state.activity}:null};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download=`esraafrh-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
 
 function exportProjectExcel() {
   const project = activeProject();
@@ -1161,7 +1252,11 @@ function attachEvents() {
   byId("expense-scope-filter").addEventListener("change", renderAllExpenses);
   byId("expense-project-filter").addEventListener("change", renderAllExpenses);
   byId("expense-category-filter").addEventListener("change", renderAllExpenses);
-  byId("add-payment-button").addEventListener("click", openPaymentModal);
+  byId("add-payment-button").addEventListener("click", () => openPaymentModal("project"));
+  byId("global-add-income-button").addEventListener("click", () => openPaymentModal("global"));
+  byId("income-search").addEventListener("input", renderAllIncome);
+  byId("income-scope-filter").addEventListener("change", renderAllIncome);
+  byId("income-project-filter").addEventListener("change", renderAllIncome);
   byId("add-progress-button").addEventListener("click", openProgressModal);
   byId("progress-image").addEventListener("change", (e)=>previewProgress(e.target.files?.[0]||null));
   byId("import-project-excel-button").addEventListener("click", ()=>{DOM.projectImportForm.reset();state.projectImportData=null;byId("project-import-preview").classList.add("hidden");byId("confirm-project-import").disabled=true;openModal(DOM.projectImportModal)});
@@ -1196,6 +1291,7 @@ function attachEvents() {
     if (target.dataset.itemNote) openItemNote(target.dataset.itemNote);
     if (target.dataset.deleteExpense) deleteExpense(target.dataset.deleteExpense, target.dataset.expenseProject || activeProject()?.id || "", target.dataset.expenseScope || "project");
     if (target.dataset.deletePayment) deletePayment(target.dataset.deletePayment);
+    if (target.dataset.deleteIncome) deleteIncome(target.dataset.deleteIncome, target.dataset.incomeProject || "", target.dataset.incomeScope || "general");
     if (target.dataset.deleteProgress) deleteProgressUpdate(target.dataset.deleteProgress);
     if (target.dataset.openReceipt) openReceipt(target.dataset.openReceipt, target.dataset.receiptProject || activeProject()?.id || "", target.dataset.expenseScope || "project");
     if (target.dataset.claimProject) claimProject(target.dataset.claimProject);

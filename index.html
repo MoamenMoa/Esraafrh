@@ -252,23 +252,40 @@
         </section>
 
         <section id="view-expenses" class="view">
-          <div class="toolbar">
-            <div><h2>إدارة المصروفات</h2><p class="muted">سجل المصروفات العامة ومصروفات المشاريع من مكان واحد، ويمكن ربط أي مصروف بمشروع عند الحاجة.</p></div>
-            <button id="global-add-expense-button" class="button primary" type="button">+ إضافة مصروف</button>
+          <div class="toolbar finance-center-head">
+            <div><h2>المركز المالي</h2><p class="muted">الوارد والمصروفات العامة ومصروفات المشاريع في شاشة واحدة، مع إمكانية ربط كل حركة بمشروع أو تسجيلها كحركة عامة.</p></div>
+            <div class="button-group"><button id="global-add-income-button" class="button outline income-button" type="button">+ إضافة وارد</button><button id="global-add-expense-button" class="button primary" type="button">+ إضافة مصروف</button></div>
           </div>
-          <div class="finance-summary-grid expense-global-summary">
+          <div class="finance-summary-grid finance-center-summary">
+            <article class="income-summary"><span>إجمالي الوارد</span><strong id="all-income-total">0</strong></article>
             <article><span>إجمالي المصروفات</span><strong id="all-expenses-total">0</strong></article>
+            <article class="net-summary"><span>صافي الرصيد</span><strong id="global-net-balance">0</strong></article>
+            <article><span>وارد المشاريع</span><strong id="project-income-global-total">0</strong></article>
             <article><span>مصروفات المشاريع</span><strong id="project-expenses-global-total">0</strong></article>
-            <article><span>مصروفات عامة</span><strong id="general-expenses-total">0</strong></article>
+            <article><span>حركات عامة — وارد / مصروف</span><strong><span id="general-income-total">0</span> / <span id="general-expenses-total">0</span></strong></article>
           </div>
-          <div class="panel">
-            <div class="expense-filters">
-              <label class="search-box"><span>⌕</span><input id="expense-search" placeholder="بحث بالبيان أو المورد أو المشروع" /></label>
-              <select id="expense-scope-filter" class="select-control"><option value="all">كل المصروفات</option><option value="project">مرتبطة بمشاريع</option><option value="general">مصروفات عامة</option></select>
-              <select id="expense-project-filter" class="select-control"><option value="all">كل المشاريع</option></select>
-              <select id="expense-category-filter" class="select-control"><option value="all">كل التصنيفات</option><option>خامات</option><option>عمالة</option><option>نقل</option><option>معدات</option><option>إيجار</option><option>رواتب</option><option>مرافق</option><option>أخرى</option></select>
-            </div>
-            <div id="all-expenses-list" class="expense-list"></div>
+
+          <div class="finance-center-columns">
+            <section class="panel finance-ledger-panel">
+              <div class="panel-head"><div><p class="eyebrow income-label">الوارد</p><h3>المبالغ المستلمة</h3></div><button id="global-add-income-button-secondary" class="button outline hidden" type="button">+ وارد</button></div>
+              <div class="expense-filters income-filters">
+                <label class="search-box"><span>⌕</span><input id="income-search" placeholder="بحث بالمرجع أو المشروع أو الملاحظات" /></label>
+                <select id="income-scope-filter" class="select-control"><option value="all">كل الوارد</option><option value="project">وارد مشاريع</option><option value="general">وارد عام</option></select>
+                <select id="income-project-filter" class="select-control"><option value="all">كل المشاريع</option></select>
+              </div>
+              <div id="all-income-list" class="expense-list"></div>
+            </section>
+
+            <section class="panel finance-ledger-panel">
+              <div class="panel-head"><div><p class="eyebrow">المصروفات</p><h3>التكاليف والمدفوعات</h3></div></div>
+              <div class="expense-filters">
+                <label class="search-box"><span>⌕</span><input id="expense-search" placeholder="بحث بالبيان أو المورد أو المشروع" /></label>
+                <select id="expense-scope-filter" class="select-control"><option value="all">كل المصروفات</option><option value="project">مرتبطة بمشاريع</option><option value="general">مصروفات عامة</option></select>
+                <select id="expense-project-filter" class="select-control"><option value="all">كل المشاريع</option></select>
+                <select id="expense-category-filter" class="select-control"><option value="all">كل التصنيفات</option><option>خامات</option><option>عمالة</option><option>نقل</option><option>معدات</option><option>إيجار</option><option>رواتب</option><option>مرافق</option><option>أخرى</option></select>
+              </div>
+              <div id="all-expenses-list" class="expense-list"></div>
+            </section>
           </div>
         </section>
 
@@ -347,8 +364,9 @@
 
   <dialog id="payment-modal" class="modal">
     <form id="payment-form" method="dialog" class="modal-card">
-      <div class="modal-head"><div><p class="eyebrow">دفعات العميل</p><h3>إضافة مبلغ مستلم</h3></div><button class="icon-button close-modal" type="button">×</button></div>
-      <div class="form-grid two"><label class="field"><span>المبلغ *</span><input id="payment-amount" type="number" min="0.01" step="0.01" required /></label><label class="field"><span>التاريخ *</span><input id="payment-date" type="date" required /></label><label class="field"><span>طريقة الدفع</span><select id="payment-method"><option>نقدي</option><option>تحويل بنكي</option><option>إنستاباي</option><option>شيك</option><option>أخرى</option></select></label><label class="field"><span>رقم الدفعة / الإيصال</span><input id="payment-reference" /></label></div>
+      <div class="modal-head"><div><p class="eyebrow">الوارد</p><h3>إضافة مبلغ مستلم</h3></div><button class="icon-button close-modal" type="button">×</button></div>
+      <label class="field"><span>ربط الوارد بمشروع</span><select id="income-project-select"><option value="">وارد عام — غير مرتبط بمشروع</option></select><small id="income-project-help">اختياري: اختر مشروعًا ليُحتسب المبلغ ضمن دفعاته.</small></label>
+      <div class="form-grid two"><label class="field"><span>بيان الوارد</span><input id="payment-title" placeholder="دفعة عميل / إيراد آخر" /></label><label class="field"><span>المبلغ *</span><input id="payment-amount" type="number" min="0.01" step="0.01" required /></label><label class="field"><span>التاريخ *</span><input id="payment-date" type="date" required /></label><label class="field"><span>طريقة الدفع</span><select id="payment-method"><option>نقدي</option><option>تحويل بنكي</option><option>إنستاباي</option><option>شيك</option><option>أخرى</option></select></label><label class="field"><span>رقم الدفعة / الإيصال</span><input id="payment-reference" /></label></div>
       <label class="field"><span>ملاحظات</span><textarea id="payment-note" rows="3"></textarea></label>
       <div class="modal-actions"><button class="button ghost close-modal" type="button">إلغاء</button><button id="save-payment-button" class="button primary" type="submit">حفظ الدفعة</button></div>
     </form>

@@ -352,7 +352,32 @@ service cloud.firestore {
       }
     }
 
-    /* مصروفات عامة غير مرتبطة بمشروع */
+
+    // تسمح بقراءة مجموعات المصروفات والوارد المرتبطة بالمشاريع من شاشة المركز المالي.
+    // الكتابة تظل محكومة بالقواعد التفصيلية داخل كل مشروع.
+    match /{path=**}/expenses/{expenseId} {
+      allow read: if activeUser();
+    }
+
+    match /{path=**}/payments/{paymentId} {
+      allow read: if activeUser();
+    }
+
+    match /generalIncome/{incomeId} {
+      allow read: if activeUser();
+      allow create: if activeUser()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.projectId == ''
+        && request.resource.data.incomeScope == 'general'
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0;
+      allow update: if admin()
+        || (activeUser() && resource.data.createdBy == request.auth.uid);
+      allow delete: if admin()
+        || (activeUser() && resource.data.createdBy == request.auth.uid);
+    }
+
+        /* مصروفات عامة غير مرتبطة بمشروع */
     match /generalExpenses/{expenseId} {
       allow read: if activeUser();
 
